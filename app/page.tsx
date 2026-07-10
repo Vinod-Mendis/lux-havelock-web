@@ -139,8 +139,15 @@ export default function Gallery() {
 
   const qrUrl = useMemo(() => {
     if (!activeImage) return '';
-    // Format the URL the exact same way as the old component
-    const baseDomain = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+    // Use the environment variable for the QR domain if available
+    const envDomain = process.env.NEXT_PUBLIC_QR_DOMAIN;
+    let baseDomain = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+    
+    if (envDomain) {
+      // Ensure the env domain doesn't have a trailing slash
+      baseDomain = envDomain.endsWith('/') ? envDomain.slice(0, -1) : envDomain;
+    }
+    
     // Append the _id to generate the direct link
     return `${baseDomain}/${activeImage._id}`;
   }, [activeImage]);
