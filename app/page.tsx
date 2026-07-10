@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import Image from 'next/image';
 import { RotateCw, Image as ImageIcon, ChevronLeft, ChevronRight, X, ExternalLink, MessageSquare } from 'lucide-react';
 
 interface ImageRecord {
@@ -269,11 +270,13 @@ export default function Gallery() {
                     onClick={() => openLightbox(index)}
                     className="group relative aspect-square bg-[#0f0f13] border border-zinc-855 hover:border-zinc-700 rounded-lg overflow-hidden transition duration-300 shadow-md cursor-pointer"
                   >
-                    <img
+                    <Image
                       src={image['image-url']}
                       alt={nameStr}
-                      loading="lazy"
+                      width={300}
+                      height={300}
                       className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
+                      priority={index < 5}
                     />
                     
                     {/* Status Dot indicator */}
