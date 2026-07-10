@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import { RotateCw, Image as ImageIcon, ChevronLeft, ChevronRight, X, ExternalLink, MessageSquare } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 
 interface ImageRecord {
   _id: string;
@@ -120,6 +121,16 @@ export default function Gallery() {
     }
     return paginatedImages[activeImageIndex];
   }, [paginatedImages, activeImageIndex]);
+
+  // Construct the QR Code URL
+  const qrUrl = useMemo(() => {
+    if (!activeImage) return '';
+    const domain = process.env.NEXT_PUBLIC_QR_DOMAIN || 'domain.com';
+    const baseDomain = domain.startsWith('http://') || domain.startsWith('https://') 
+      ? domain 
+      : `https://${domain}`;
+    return `${baseDomain}/${activeImage._id}`;
+  }, [activeImage]);
 
   // Handle opening lightbox / switching slides
   const openLightbox = (index: number) => {
@@ -476,6 +487,24 @@ export default function Gallery() {
                       <ExternalLink className="w-3.5 h-3.5" />
                       Open CDN Image
                     </a>
+                  </div>
+
+                  {/* QR Code sharing container */}
+                  <div className="pt-4 flex flex-col items-center justify-center bg-zinc-950/40 border border-zinc-900/60 rounded-lg p-3">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-2">Scan to Share</span>
+                    <div className="bg-white p-1.5 rounded-lg border border-zinc-200 shadow-md">
+                      <QRCodeSVG
+                        value={qrUrl}
+                        size={110}
+                        level="Q"
+                        includeMargin={false}
+                        fgColor="#09090b"
+                        bgColor="#ffffff"
+                      />
+                    </div>
+                    <span className="text-[9px] text-zinc-500 font-mono mt-2 truncate w-full text-center" title={qrUrl}>
+                      {qrUrl}
+                    </span>
                   </div>
 
                 </div>
