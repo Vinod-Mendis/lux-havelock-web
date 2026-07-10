@@ -24,7 +24,7 @@ export default function Gallery() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null);
+  const [activeImageId, setActiveImageId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [filter, setFilter] = useState<'unsent' | 'sent'>('unsent');
   
@@ -126,29 +126,29 @@ export default function Gallery() {
     return filteredImages.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [filteredImages, currentPage]);
 
-  // Active image in lightbox (relative to paginated images)
-  const activeImage = useMemo(() => {
-    if (activeImageIndex === null || activeImageIndex < 0 || activeImageIndex >= paginatedImages.length) {
-      return null;
-    }
-    return paginatedImages[activeImageIndex];
-  }, [paginatedImages, activeImageIndex]);
+  const activeImageIndex = useMemo(() => {
+    if (!activeImageId) return null;
+    const index = filteredImages.findIndex((img) => img._id === activeImageId);
+    return index !== -1 ? index : null;
+  }, [filteredImages, activeImageId]);
 
-  // Construct the QR Code URL
+  const activeImage = useMemo(() => {
+    if (activeImageIndex === null) return null;
+    return filteredImages[activeImageIndex];
+  }, [filteredImages, activeImageIndex]);
+
   const qrUrl = useMemo(() => {
     if (!activeImage) return '';
-    const domain = process.env.NEXT_PUBLIC_QR_DOMAIN || 'domain.com';
-    const baseDomain = domain.startsWith('http://') || domain.startsWith('https://') 
-      ? domain 
-      : `https://${domain}`;
+    // Format the URL the exact same way as the old component
+    const baseDomain = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+    // Append the _id to generate the direct link
     return `${baseDomain}/${activeImage._id}`;
   }, [activeImage]);
 
-  // Handle opening lightbox / switching slides
-  const openLightbox = (index: number) => {
-    setActiveImageIndex(index);
-    const img = paginatedImages[index];
-    setWhatsappInput(img?.['whatsapp-number'] || '');
+  // Handle open lightbox
+  const openLightbox = (image: ImageRecord) => {
+    setActiveImageId(image._id);
+    setWhatsappInput(image['whatsapp-number'] || '');
     setUpdateMessage(null);
     setIsModalImageLoading(true);
     setIsQrPopupOpen(false); // Reset QR popup state
@@ -159,21 +159,21 @@ export default function Gallery() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (activeImageIndex === null) return;
       if (e.key === 'Escape') {
-        setActiveImageIndex(null);
+        setActiveImageId(null);
         setIsQrPopupOpen(false);
       } else if (e.key === 'ArrowRight') {
-        if (activeImageIndex < paginatedImages.length - 1) {
-          openLightbox(activeImageIndex + 1);
+        if (activeImageIndex < filteredImages.length - 1) {
+          openLightbox(filteredImages[activeImageIndex + 1]);
         }
       } else if (e.key === 'ArrowLeft') {
         if (activeImageIndex > 0) {
-          openLightbox(activeImageIndex - 1);
+          openLightbox(filteredImages[activeImageIndex - 1]);
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeImageIndex, paginatedImages]);
+  }, [activeImageIndex, filteredImages]);
 
   // Pagination navigation helpers
   const handlePrevPage = () => {
@@ -261,6 +261,37 @@ export default function Gallery() {
       setUpdateMessage({ type: 'error', text: err.message || 'Error updating status' });
     } finally {
       setIsUpdatingStatus(false);
+    }
+  };
+
+  // Mark as sent directly from QR popup
+  const handleMarkQRAsSent = async () => {
+    if (!activeImage) return;
+    try {
+      const res = await fetch('/api/images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: activeImage._id,
+          status: 'sent',
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setImages((prev) =>
+          prev.map((img) =>
+            img._id === activeImage._id
+              ? { ...img, status: 'sent' }
+              : img
+          )
+        );
+        setIsQrPopupOpen(false);
+      } else {
+        alert(data.error || 'Failed to mark as sent');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error updating status');
     }
   };
 
@@ -366,7 +397,7 @@ export default function Gallery() {
                 return (
                   <div
                     key={image._id}
-                    onClick={() => openLightbox(index)}
+                    onClick={() => openLightbox(image)}
                     className="group relative aspect-square bg-white border border-[#AE7FD2]/30 hover:border-[#9A69BD]/60 rounded-lg overflow-hidden transition duration-300 shadow-sm cursor-pointer"
                   >
                     <Image
@@ -470,14 +501,14 @@ export default function Gallery() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-white/60 backdrop-blur-sm">
           
           {/* Close target */}
-          <div className="absolute inset-0" onClick={() => setActiveImageIndex(null)} />
+          <div className="absolute inset-0" onClick={() => setActiveImageId(null)} />
 
           {/* Modal Container */}
           <div className="relative w-full max-w-2xl bg-white border border-[#AE7FD2]/30 rounded-xl overflow-y-auto shadow-2xl z-10 flex flex-col max-h-[90vh]">
             
             {/* Close Button (Larger touch target) */}
             <button
-              onClick={() => setActiveImageIndex(null)}
+              onClick={() => setActiveImageId(null)}
               className="absolute right-4 top-4 z-20 p-3 text-[#2C2520]/60 hover:text-[#9A69BD] rounded-full bg-white/80 hover:bg-gray-50 border border-[#AE7FD2]/30 shadow-sm transition duration-200 cursor-pointer"
               aria-label="Close"
             >
@@ -507,7 +538,7 @@ export default function Gallery() {
               {/* Prev image control */}
               {activeImageIndex !== null && activeImageIndex > 0 && (
                 <button
-                  onClick={() => openLightbox(activeImageIndex - 1)}
+                  onClick={() => openLightbox(filteredImages[activeImageIndex - 1])}
                   className="absolute left-4 p-3 bg-white/90 hover:bg-white border border-[#AE7FD2]/30 shadow-sm rounded-full text-[#2C2520]/70 hover:text-[#9A69BD] transition duration-200 cursor-pointer"
                   aria-label="Previous"
                 >
@@ -516,9 +547,9 @@ export default function Gallery() {
               )}
 
               {/* Next image control */}
-              {activeImageIndex !== null && activeImageIndex < paginatedImages.length - 1 && (
+              {activeImageIndex !== null && activeImageIndex < filteredImages.length - 1 && (
                 <button
-                  onClick={() => openLightbox(activeImageIndex + 1)}
+                  onClick={() => openLightbox(filteredImages[activeImageIndex + 1])}
                   className="absolute right-4 p-3 bg-white/90 hover:bg-white border border-[#AE7FD2]/30 shadow-sm rounded-full text-[#2C2520]/70 hover:text-[#9A69BD] transition duration-200 cursor-pointer"
                   aria-label="Next"
                 >
@@ -659,6 +690,13 @@ export default function Gallery() {
               fgColor="#2C2520"
               bgColor="#ffffff"
             />
+            
+            <button
+              onClick={handleMarkQRAsSent}
+              className="mt-6 w-full py-3.5 px-6 bg-[#9A69BD] hover:bg-[#8e5eb0] active:scale-[0.99] text-white rounded-xl text-lg font-bold transition duration-150 cursor-pointer shadow-md shadow-[#9A69BD]/20"
+            >
+              Mark Sent
+            </button>
           </div>
         </div>
       )}

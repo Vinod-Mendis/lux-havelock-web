@@ -39,11 +39,11 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { id, imageUrl, phoneNumber } = await request.json();
+    const { id, imageUrl, phoneNumber, status = 'pending' } = await request.json();
     
-    if ((!id && !imageUrl) || !phoneNumber) {
+    if ((!id && !imageUrl) || (status === 'pending' && !phoneNumber)) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields (id/imageUrl and phoneNumber)' },
+        { success: false, error: 'Missing required fields' },
         { status: 400 }
       );
     }
@@ -59,11 +59,15 @@ export async function POST(request: Request) {
       filter = { 'image-url': imageUrl };
     }
 
+    const updateDoc: any = {
+      status: status,
+    };
+    if (phoneNumber) {
+      updateDoc['whatsapp-number'] = phoneNumber;
+    }
+
     const updateResult = await collection.updateOne(filter, {
-      $set: {
-        status: 'pending',
-        'whatsapp-number': phoneNumber,
-      },
+      $set: updateDoc,
       $unset: {
         error: '',
         failedAt: '',
