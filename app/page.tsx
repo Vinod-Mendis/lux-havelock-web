@@ -332,7 +332,7 @@ export default function Gallery() {
             {/* Filter Buttons */}
             <div className="flex bg-white/50 p-1 rounded-lg border border-[#AE7FD2]/30 shrink-0">
               <button
-                onClick={() => { setFilter('unsent'); setCurrentPage(1); }}
+                onClick={() => { setFilter('unsent'); setCurrentPage(1); setActiveImageId(null); }}
                 className={`px-5 py-2.5 rounded-md text-sm font-bold transition duration-200 cursor-pointer ${
                   filter === 'unsent' 
                     ? 'bg-white text-[#9A69BD] shadow-sm border border-[#AE7FD2]/20' 
@@ -342,7 +342,7 @@ export default function Gallery() {
                 Unsent
               </button>
               <button
-                onClick={() => { setFilter('sent'); setCurrentPage(1); }}
+                onClick={() => { setFilter('sent'); setCurrentPage(1); setActiveImageId(null); }}
                 className={`px-5 py-2.5 rounded-md text-sm font-bold transition duration-200 cursor-pointer ${
                   filter === 'sent' 
                     ? 'bg-[#9A69BD]/10 text-[#9A69BD] border border-[#9A69BD]/30 shadow-sm' 
