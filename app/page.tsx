@@ -35,45 +35,19 @@ export default function Gallery() {
   const [isModalImageLoading, setIsModalImageLoading] = useState<boolean>(true);
   const [isQrPopupOpen, setIsQrPopupOpen] = useState<boolean>(false);
 
-  // Ref to store the newest image ID for delta polling
-  const latestIdRef = useRef<string | null>(null);
 
-  // Sync ref whenever images list changes
-  useEffect(() => {
-    if (images.length > 0) {
-      latestIdRef.current = images[0]._id;
-    } else {
-      latestIdRef.current = null;
-    }
-  }, [images]);
 
-  // Fetch images from API (with incremental fetching support)
+  // Fetch images from API (Full sync to catch updates and deletions)
   const fetchImages = async (isPoll = false, showSpinner = false) => {
     if (showSpinner) setIsRefreshing(true);
     try {
-      const sinceId = isPoll ? latestIdRef.current : null;
-      const url = sinceId ? `/api/images?sinceId=${sinceId}` : '/api/images';
-
-      const res = await fetch(url);
+      const res = await fetch('/api/images');
       if (!res.ok) throw new Error('Failed to fetch images');
       const data = await res.json();
       
       if (data.success) {
-        if (sinceId) {
-          // Delta poll: prepend newly created images to state
-          if (data.images && data.images.length > 0) {
-            setImages((prev) => {
-              const newImages = data.images.filter(
-                (newImg: any) => !prev.some((oldImg) => oldImg._id === newImg._id)
-              );
-              if (newImages.length === 0) return prev;
-              return [...newImages, ...prev];
-            });
-          }
-        } else {
-          // Full load or reload
-          setImages(data.images);
-        }
+        // Full load or reload
+        setImages(data.images);
         setError(null);
       } else {
         throw new Error(data.error || 'Unknown error occurred');
