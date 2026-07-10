@@ -31,6 +31,7 @@ export default function Gallery() {
   const [whatsappInput, setWhatsappInput] = useState<string>('');
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
   const [updateMessage, setUpdateMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [isModalImageLoading, setIsModalImageLoading] = useState<boolean>(true);
 
   // Ref to store the newest image ID for delta polling
   const latestIdRef = useRef<string | null>(null);
@@ -136,8 +137,9 @@ export default function Gallery() {
   const openLightbox = (index: number) => {
     setActiveImageIndex(index);
     const img = paginatedImages[index];
-    setWhatsappInput(img?.['whatsapp-number'] || '94772462795');
+    setWhatsappInput(img?.['whatsapp-number'] || '');
     setUpdateMessage(null);
+    setIsModalImageLoading(true);
   };
 
   // Lightbox keyboard navigation
@@ -172,7 +174,7 @@ export default function Gallery() {
   // Realtime phone validation
   const phoneError = useMemo(() => {
     if (!whatsappInput) return null;
-    const stripped = whatsappInput.trim();
+    const stripped = whatsappInput.replace(/\s+/g, '');
     if (stripped.length === 0) return null;
     
     if (!stripped.startsWith('0')) {
@@ -191,7 +193,7 @@ export default function Gallery() {
   }, [whatsappInput]);
 
   const isSubmitDisabled = useMemo(() => {
-    const stripped = whatsappInput.trim();
+    const stripped = whatsappInput.replace(/\s+/g, '');
     return (
       isUpdatingStatus ||
       activeImage?.status === 'pending' ||
@@ -208,8 +210,8 @@ export default function Gallery() {
     setIsUpdatingStatus(true);
     setUpdateMessage(null);
 
-    // Format phone number: Replace leading 0 with 94
-    let formattedNumber = whatsappInput.trim();
+    // Format phone number: Strip spaces and replace leading 0 with 94
+    let formattedNumber = whatsappInput.replace(/\s+/g, '');
     if (formattedNumber.startsWith('0')) {
       formattedNumber = '94' + formattedNumber.slice(1);
     }
@@ -439,11 +441,22 @@ export default function Gallery() {
 
             {/* Left compartment: Enlarged Image & Navigation */}
             <div className="relative flex-1 bg-zinc-950 flex items-center justify-center p-4 min-h-[300px] md:min-h-[450px]">
-              <img
+              <Image
                 src={activeImage['image-url']}
                 alt={getFilename(activeImage['image-url'])}
+                width={800}
+                height={800}
                 className="max-w-full max-h-[70vh] object-contain rounded"
+                priority
+                onLoad={() => setIsModalImageLoading(false)}
               />
+
+              {/* Loading spinner overlay */}
+              {isModalImageLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-zinc-950/40 backdrop-blur-[1px]">
+                  <RotateCw className="w-6 h-6 text-violet-500 animate-spin" />
+                </div>
+              )}
 
               {/* Prev image control */}
               {activeImageIndex !== null && activeImageIndex > 0 && (
@@ -558,7 +571,7 @@ export default function Gallery() {
                   <div>
                     <input
                       type="text"
-                      placeholder="e.g. 0772462795"
+                      placeholder="07X XXX XXXX"
                       value={whatsappInput}
                       onChange={(e) => setWhatsappInput(e.target.value)}
                       required
@@ -568,7 +581,7 @@ export default function Gallery() {
 
                   {/* Static Helper Info showing the example */}
                   <div className="text-[10px] text-zinc-500">
-                    Format: <span className="font-semibold text-zinc-400">0772462795</span> (10 digits starting with 0)
+                    Format: <span className="font-semibold text-zinc-400">07X XXX XXXX</span> (10 digits starting with 0)
                   </div>
 
                   <button
