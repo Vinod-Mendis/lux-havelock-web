@@ -26,6 +26,7 @@ export default function Gallery() {
   const [error, setError] = useState<string | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [filter, setFilter] = useState<'unsent' | 'sent'>('unsent');
   
   // WhatsApp Form states inside Modal
   const [whatsappInput, setWhatsappInput] = useState<string>('');
@@ -99,10 +100,19 @@ export default function Gallery() {
     return () => clearInterval(interval);
   }, []);
 
+  // Filter images based on current filter state
+  const filteredImages = useMemo(() => {
+    if (filter === 'sent') {
+      return images.filter(img => img.status === 'sent');
+    } else {
+      return images.filter(img => img.status !== 'sent');
+    }
+  }, [images, filter]);
+
   // Pagination calculations
   const totalPages = useMemo(() => {
-    return Math.max(1, Math.ceil(images.length / ITEMS_PER_PAGE));
-  }, [images]);
+    return Math.max(1, Math.ceil(filteredImages.length / ITEMS_PER_PAGE));
+  }, [filteredImages]);
 
   // Adjust page number if it exceeds total pages
   useEffect(() => {
@@ -113,8 +123,8 @@ export default function Gallery() {
 
   const paginatedImages = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    return images.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [images, currentPage]);
+    return filteredImages.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredImages, currentPage]);
 
   // Active image in lightbox (relative to paginated images)
   const activeImage = useMemo(() => {
@@ -279,15 +289,41 @@ export default function Gallery() {
             </p>
           </div>
 
-          {/* Manual Refresh Button (Enlarged) */}
-          <button
-            onClick={() => fetchImages(false, true)}
-            disabled={isRefreshing}
-            className="flex items-center justify-center gap-2.5 px-6 py-3.5 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/70 text-zinc-200 hover:text-white rounded-lg transition duration-200 font-bold text-base disabled:opacity-50 cursor-pointer self-start sm:self-auto"
-          >
-            <RotateCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin text-violet-400' : ''}`} />
-            {isRefreshing ? 'Refreshing...' : 'Refresh'}
-          </button>
+          <div className="flex flex-wrap items-center gap-3 self-start sm:self-auto">
+            {/* Filter Buttons */}
+            <div className="flex bg-zinc-900/50 p-1 rounded-lg border border-zinc-800 shrink-0">
+              <button
+                onClick={() => { setFilter('unsent'); setCurrentPage(1); }}
+                className={`px-5 py-2.5 rounded-md text-sm font-bold transition duration-200 cursor-pointer ${
+                  filter === 'unsent' 
+                    ? 'bg-zinc-800 text-white shadow-sm' 
+                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50'
+                }`}
+              >
+                Unsent
+              </button>
+              <button
+                onClick={() => { setFilter('sent'); setCurrentPage(1); }}
+                className={`px-5 py-2.5 rounded-md text-sm font-bold transition duration-200 cursor-pointer ${
+                  filter === 'sent' 
+                    ? 'bg-violet-600/20 text-violet-400 border-violet-500/30 border shadow-sm' 
+                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50'
+                }`}
+              >
+                Sent
+              </button>
+            </div>
+
+            {/* Manual Refresh Button (Enlarged) */}
+            <button
+              onClick={() => fetchImages(false, true)}
+              disabled={isRefreshing}
+              className="flex items-center justify-center gap-2.5 px-6 py-3.5 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/70 text-zinc-200 hover:text-white rounded-lg transition duration-200 font-bold text-base disabled:opacity-50 cursor-pointer shrink-0"
+            >
+              <RotateCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin text-violet-400' : ''}`} />
+              <span className="hidden sm:inline">{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+            </button>
+          </div>
         </header>
 
         {/* Error Alert */}
@@ -306,7 +342,7 @@ export default function Gallery() {
                 <div key={i} className="aspect-square bg-zinc-900/40 border border-zinc-800/40 rounded-lg animate-pulse" />
               ))}
             </div>
-          ) : images.length === 0 ? (
+          ) : filteredImages.length === 0 ? (
             
             /* Empty State */
             <div className="bg-zinc-900/10 border border-zinc-800/30 rounded-xl p-16 text-center max-w-lg mx-auto w-full">
@@ -367,10 +403,10 @@ export default function Gallery() {
           {/* Item Count */}
           <div className="text-base text-zinc-400">
             Showing <span className="font-semibold text-zinc-200">
-              {images.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}
+              {filteredImages.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}
             </span> to <span className="font-semibold text-zinc-200">
-              {Math.min(currentPage * ITEMS_PER_PAGE, images.length)}
-            </span> of <span className="font-semibold text-zinc-200">{images.length}</span> images
+              {Math.min(currentPage * ITEMS_PER_PAGE, filteredImages.length)}
+            </span> of <span className="font-semibold text-zinc-200">{filteredImages.length}</span> images
           </div>
 
           {/* Pagination Controls */}
@@ -535,7 +571,7 @@ export default function Gallery() {
               </div>
 
               {/* WhatsApp Form Compartment (Enlarged) */}
-              <div className="mt-10 pt-8 border-t border-zinc-800">
+              <div className="mt-8">
                 <h4 className="text-base font-bold uppercase tracking-wider text-zinc-300 mb-4 flex items-center gap-2">
                   <MessageSquare className="w-5 h-5 text-zinc-400" />
                   Send via WhatsApp
