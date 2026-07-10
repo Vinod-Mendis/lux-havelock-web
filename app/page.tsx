@@ -169,6 +169,37 @@ export default function Gallery() {
     setCurrentPage((prev) => Math.min(totalPages, prev + 1));
   };
 
+  // Realtime phone validation
+  const phoneError = useMemo(() => {
+    if (!whatsappInput) return null;
+    const stripped = whatsappInput.trim();
+    if (stripped.length === 0) return null;
+    
+    if (!stripped.startsWith('0')) {
+      return 'Number must start with 0';
+    }
+    
+    if (!/^\d+$/.test(stripped)) {
+      return 'Must contain only numbers';
+    }
+    
+    if (stripped.length !== 10) {
+      return `Must be exactly 10 digits (currently ${stripped.length})`;
+    }
+    
+    return null;
+  }, [whatsappInput]);
+
+  const isSubmitDisabled = useMemo(() => {
+    const stripped = whatsappInput.trim();
+    return (
+      isUpdatingStatus ||
+      activeImage?.status === 'pending' ||
+      !!phoneError ||
+      stripped.length !== 10
+    );
+  }, [isUpdatingStatus, activeImage, phoneError, whatsappInput]);
+
   // Submit WhatsApp update & status reset
   const handleUpdateStatus = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,6 +207,12 @@ export default function Gallery() {
 
     setIsUpdatingStatus(true);
     setUpdateMessage(null);
+
+    // Format phone number: Replace leading 0 with 94
+    let formattedNumber = whatsappInput.trim();
+    if (formattedNumber.startsWith('0')) {
+      formattedNumber = '94' + formattedNumber.slice(1);
+    }
 
     try {
       const res = await fetch('/api/images', {
@@ -185,19 +222,20 @@ export default function Gallery() {
         },
         body: JSON.stringify({
           id: activeImage._id,
-          phoneNumber: whatsappInput.trim(),
+          phoneNumber: formattedNumber,
         }),
       });
 
       const data = await res.json();
       if (data.success) {
         setUpdateMessage({ type: 'success', text: 'WhatsApp queued as pending!' });
+        setWhatsappInput(formattedNumber); // Update input field to show formatted version
         
         // Update images array optimistically
         setImages((prev) =>
           prev.map((img) =>
             img._id === activeImage._id
-              ? { ...img, status: 'pending', 'whatsapp-number': whatsappInput.trim() }
+              ? { ...img, status: 'pending', 'whatsapp-number': formattedNumber }
               : img
           )
         );
@@ -212,20 +250,20 @@ export default function Gallery() {
   };
 
   return (
-    <div className="min-h-screen bg-[#070709] text-zinc-100 font-sans antialiased selection:bg-violet-500/30 selection:text-violet-200 flex flex-col justify-between">
+    <div className="h-svh max-h-svh bg-[#070709] text-zinc-100 font-sans antialiased selection:bg-violet-500/30 selection:text-violet-200 flex flex-col justify-between overflow-hidden relative">
       
       {/* Background glow decorations */}
       <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-violet-600/5 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-teal-500/5 rounded-full blur-[100px] pointer-events-none" />
 
       {/* Main Content Area */}
-      <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10 flex-1 flex flex-col">
+      <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-2 relative z-10 flex-1 flex flex-col overflow-hidden">
         
         {/* Header & Action controls */}
-        <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-800/60 pb-6 mb-6">
+        <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-800/60 pb-4 mb-4 shrink-0">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white bg-clip-text bg-gradient-to-r from-white via-zinc-200 to-zinc-400 flex items-center gap-2">
-              Lumina Gallery
+              LUX Gallery
               <span className="flex h-2 w-2 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
@@ -254,8 +292,8 @@ export default function Gallery() {
           </div>
         )}
 
-        {/* Gallery Grid Wrapper (Top-aligned justify-start) */}
-        <div className="flex-1 flex flex-col justify-start">
+        {/* Gallery Grid Wrapper (Top-aligned scrollable wrapper) */}
+        <div className="flex-1 overflow-y-auto pr-1">
           {isLoading ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {[...Array(15)].map((_, i) => (
@@ -320,7 +358,7 @@ export default function Gallery() {
       </div>
 
       {/* Footer with Pagination */}
-      <footer className="border-t border-zinc-800/60 bg-[#08080a]/65 backdrop-blur-md py-4 relative z-10">
+      <footer className="border-t border-zinc-800/60 bg-[#08080a]/65 backdrop-blur-md py-4 relative z-10 shrink-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           
           {/* Item Count */}
@@ -516,23 +554,27 @@ export default function Gallery() {
                   <MessageSquare className="w-3.5 h-3.5 text-zinc-400" />
                   Send via WhatsApp
                 </h4>
-                
-                <form onSubmit={handleUpdateStatus} className="space-y-3">
+                                <form onSubmit={handleUpdateStatus} className="space-y-2">
                   <div>
                     <input
                       type="text"
-                      placeholder="e.g. 94772462795"
+                      placeholder="e.g. 0772462795"
                       value={whatsappInput}
                       onChange={(e) => setWhatsappInput(e.target.value)}
                       required
-                      className="w-full bg-[#0d0d11] border border-zinc-800 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 rounded-lg px-3 py-2 text-xs text-zinc-200 outline-none font-mono"
+                      className="w-full bg-[#0d0d11] border border-zinc-800 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 rounded-lg px-3 py-2 text-xs text-zinc-200 outline-none font-mono transition duration-200"
                     />
+                  </div>
+
+                  {/* Static Helper Info showing the example */}
+                  <div className="text-[10px] text-zinc-500">
+                    Format: <span className="font-semibold text-zinc-400">0772462795</span> (10 digits starting with 0)
                   </div>
 
                   <button
                     type="submit"
-                    disabled={isUpdatingStatus || activeImage.status === 'pending'}
-                    className="w-full py-2 px-3 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-xs font-bold transition duration-200 disabled:opacity-50 cursor-pointer"
+                    disabled={isSubmitDisabled}
+                    className="w-full py-2 px-3 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-xs font-bold transition duration-200 disabled:opacity-40 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed cursor-pointer mt-2"
                   >
                     {isUpdatingStatus ? 'Queueing...' : activeImage.status === 'pending' ? 'Queued Pending' : 'Send'}
                   </button>
