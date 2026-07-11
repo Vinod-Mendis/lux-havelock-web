@@ -626,7 +626,9 @@ export default function Gallery() {
                 <form onSubmit={handleUpdateStatus} className="space-y-3.5">
                   <div>
                     <input
-                      type="text"
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       placeholder="07X XXX XXXX"
                       value={whatsappInput}
                       onChange={(e) => {
